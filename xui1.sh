@@ -66,6 +66,25 @@ echo -e "操作系统: ${GREEN} ${CMD} ${PLAIN}"
 echo ""
 sleep 2
 
+if [[ -e /usr/local/x-ui/ ]]; then
+    yellow "检测到目前已安装x-ui面板, 确认卸载原x-ui面板?"
+    read -rp "请输入选项 [Y/N, 默认N]: " yn
+    if [[ $yn =~ "Y"|"y" ]]; then
+        systemctl stop x-ui
+        systemctl disable x-ui
+        rm -f /etc/systemd/system/x-ui.service
+        systemctl daemon-reload
+        systemctl reset-failed
+        rm -rf /etc/x-ui/ /usr/local/x-ui/
+        rm -f /usr/bin/x-ui
+    else
+        red "已取消卸载, 脚本退出!"
+        exit 1
+    fi
+fi
+
+systemctl stop x-ui >/dev/null 2>&1
+
 if [[ ! $SYSTEM == "CentOS" ]]; then
     ${PACKAGE_UPDATE[int]}
 fi
@@ -167,26 +186,6 @@ panel_config() {
 
 install_xui() {
     info_bar
-    
-    if [[ -e /usr/local/x-ui/ ]]; then
-        yellow "检测到目前已安装x-ui面板, 确认卸载原x-ui面板?"
-        read -rp "请输入选项 [Y/N, 默认N]: " yn
-        if [[ $yn =~ "Y"|"y" ]]; then
-            systemctl stop x-ui
-            systemctl disable x-ui
-            rm /etc/systemd/system/x-ui.service -f
-            systemctl daemon-reload
-            systemctl reset-failed
-            rm /etc/x-ui/ -rf
-            rm /usr/local/x-ui/ -rf
-            rm /usr/bin/x-ui -f
-        else
-            red "已取消卸载, 脚本退出!"
-            exit 1
-        fi
-    fi
-    
-    systemctl stop x-ui >/dev/null 2>&1
     
     install_base
     download_xui $1
