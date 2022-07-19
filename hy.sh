@@ -237,7 +237,7 @@ installBBR() {
     fi
 }
 
-installHysteria() {
+install_hysteria() {
     install_base
     wgcfv6status=$(curl -s6m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2) 
     wgcfv4status=$(curl -s4m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
@@ -303,7 +303,7 @@ view_log(){
     service hysteria status
 }
 
-uninstall(){
+uninstall_hysteria(){
     systemctl stop hysteria
     systemctl disable hysteria
     rm -rf /etc/hysteria
@@ -428,8 +428,8 @@ menu() {
     echo ""
     read -rp " 请选择操作 [0-11] ：" answer
     case $answer in
-        1) installHysteria ;;
-        2) uninstall ;;
+        1) install_hysteria ;;
+        2) uninstall_hysteria ;;
         3) start_hysteria ;;
         4) restart_hysteria ;;
         5) stop_hysteria ;;
@@ -450,8 +450,8 @@ fi
 
 if [[ $# > 0 ]]; then
     case $1 in
-        install ) installHysteria ;;
-        uninstall ) uninstall ;;
+        install ) install_hysteria ;;
+        uninstall ) uninstall_hysteria ;;
         update ) update_hysteria ;;
         on ) start_hysteria ;;
         off ) stop_hysteria ;;
