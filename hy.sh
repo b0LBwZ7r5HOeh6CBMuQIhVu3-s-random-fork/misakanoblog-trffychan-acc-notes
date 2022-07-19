@@ -99,7 +99,7 @@ downloadHysteria() {
     rm -rf /etc/hysteria
     mkdir /etc/hysteria
     last_version=$(curl -Ls "https://data.jsdelivr.com/v1/package/resolve/gh/HyNetwork/Hysteria" | grep '"version":' | sed -E 's/.*"([^"]+)".*/\1/')
-    if [[ ! -n "$last_version" ]]; then
+    if [[ -z "$last_version" ]]; then
         red "检测 Hysteria 版本失败，可能是网络问题，请稍后再试"
         exit 1
     fi
