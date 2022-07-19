@@ -117,118 +117,99 @@ else
 fi
 sleep 1
 
-download_xui(){
-    if [[ -e /usr/local/x-ui/ ]]; then
-        rm -rf /usr/local/x-ui/
-    fi
+if [[ -e /usr/local/x-ui/ ]]; then
+    rm -rf /usr/local/x-ui/
+fi
     
-    if [ $# == 0 ]; then
-        last_version=$(curl -Ls "https://api.github.com/repos/taffychan/x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+if [[ $# == 0 ]]; then
+    last_version=$(curl -Ls "https://api.github.com/repos/taffychan/x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    if [[ -z "$last_version" ]]; then
+        last_version=$(curl -sm8 https://raw.githubusercontents.com/taffychan/x-ui/main/config/version >/dev/null 2>&1)
         if [[ -z "$last_version" ]]; then
-            # red "检测 x-ui 版本失败，可能是超出 Github API 限制，正在使用备用源检测最新版本"
-            last_version=$(curl -sm8 https://raw.githubusercontents.com/taffychan/x-ui/main/config/version >/dev/null 2>&1)
-            if [[ -z "$last_version" ]]; then
-                red "检测 x-ui 版本失败，请确保你的服务器能够连接 Github API"
-                rm -f install.sh
-                exit 1
-            fi
-        fi
-        yellow "检测到 x-ui 最新版本：${last_version}，开始安装"
-        wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(archAffix).tar.gz https://github.com/taffychan/x-ui/releases/download/${last_version}/x-ui-linux-$(archAffix).tar.gz
-        if [[ $? -ne 0 ]]; then
-            red "下载 x-ui 失败，请确保你的服务器能够连接并下载 Github 的文件"
-            rm -f install.sh
-            exit 1
-        fi
-    else
-        last_version=$1
-        url="https://github.com/taffychan/x-ui/releases/download/${last_version}/x-ui-linux-$(archAffix).tar.gz"
-        yellow "开始安装 x-ui $1"
-        wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(archAffix).tar.gz ${url}
-        if [[ $? -ne 0 ]]; then
-            red "下载 x-ui v$1 失败，请确保此版本存在"
+            red "检测 x-ui 版本失败，请确保你的服务器能够连接 Github API"
             rm -f install.sh
             exit 1
         fi
     fi
-    
-    cd /usr/local/
-    tar zxvf x-ui-linux-$(archAffix).tar.gz
-    rm -f x-ui-linux-$(archAffix).tar.gz
-    
-    cd x-ui
-    chmod +x x-ui bin/xray-linux-$(archAffix)
-    cp -f x-ui.service /etc/systemd/system/
-    
-    wget -N --no-check-certificate https://raw.githubusercontents.com/taffychan/x-ui/main/x-ui.sh -O /usr/bin/x-ui
-    chmod +x /usr/local/x-ui/x-ui.sh
-    chmod +x /usr/bin/x-ui
-}
-
-panel_config() {
-    yellow "出于安全性考虑，安装/更新完成后需要强制修改端口与账户密码"
-    read -rp "请设置登录用户名 [默认随机用户名]: " config_account
-    [[ -z $config_account ]] && config_account=$(date +%s%N | md5sum | cut -c 1-8)
-    read -rp "请设置登录密码 [默认随机密码]: " config_password
-    [[ -z $config_password ]] && config_password=$(date +%s%N | md5sum | cut -c 1-8)
-    read -rp "请设置面板访问端口 [默认随机端口]: " config_port
-    [[ -z $config_port ]] && config_port=$(shuf -i 1000-65535 -n 1)
-    until [[ -z $(ss -ntlp | awk '{print $4}' | grep -w "$config_port") ]]; do
-        if [[ -n $(ss -ntlp | awk '{print $4}' | grep -w  "$config_port") ]]; then
-            yellow "你设置的端口目前已被其他程序占用，请重新设置端口"
-            read -rp "请设置面板访问端口 [默认随机端口]: " config_port
-            [[ -z $config_port ]] && config_port=$(shuf -i 1000-65535 -n 1)
-        fi
-    done
-    /usr/local/x-ui/x-ui setting -username ${config_account} -password ${config_password} >/dev/null 2>&1
-    /usr/local/x-ui/x-ui setting -port ${config_port} >/dev/null 2>&1
-}
-
-install_xui() {
-    info_bar
-    
-    install_base
-    download_xui $1
-    panel_config
-    
-    systemctl daemon-reload
-    systemctl enable x-ui >/dev/null 2>&1
-    systemctl start x-ui
-    
-    cd $cur_dir
-    rm -f install.sh
-    green "x-ui v${last_version} 安装完成，面板已启动"
-    echo -e ""
-    echo -e "x-ui 管理脚本使用方法: "
-    echo -e "----------------------------------------------"
-    echo -e "x-ui              - 显示管理菜单 (功能更多)"
-    echo -e "x-ui start        - 启动 x-ui 面板"
-    echo -e "x-ui stop         - 停止 x-ui 面板"
-    echo -e "x-ui restart      - 重启 x-ui 面板"
-    echo -e "x-ui status       - 查看 x-ui 状态"
-    echo -e "x-ui enable       - 设置 x-ui 开机自启"
-    echo -e "x-ui disable      - 取消 x-ui 开机自启"
-    echo -e "x-ui log          - 查看 x-ui 日志"
-    echo -e "x-ui v2-ui        - 迁移本机器的 v2-ui 账号数据至 x-ui"
-    echo -e "x-ui update       - 更新 x-ui 面板"
-    echo -e "x-ui install      - 安装 x-ui 面板"
-    echo -e "x-ui uninstall    - 卸载 x-ui 面板"
-    echo -e "----------------------------------------------"
-    echo -e ""
-    show_login_info
-}
-
-show_login_info(){
-    if [[ -n $v4 && -z $v6 ]]; then
-        echo -e "面板IPv4登录地址为: ${GREEN}http://$v4:$config_port ${PLAIN}"
-    elif [[ -n $v6 && -z $v4 ]]; then
-        echo -e "面板IPv6登录地址为: ${GREEN}http://[$v6]:$config_port ${PLAIN}"
-    elif [[ -n $v4 && -n $v6 ]]; then
-        echo -e "面板IPv4登录地址为: ${GREEN}http://$v4:$config_port ${PLAIN}"
-        echo -e "面板IPv6登录地址为: ${GREEN}http://[$v6]:$config_port ${PLAIN}"
+    yellow "检测到 x-ui 最新版本：${last_version}，开始安装"
+    wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(archAffix).tar.gz https://github.com/taffychan/x-ui/releases/download/${last_version}/x-ui-linux-$(archAffix).tar.gz
+    if [[ $? -ne 0 ]]; then
+        red "下载 x-ui 失败，请确保你的服务器能够连接并下载 Github 的文件"
+        rm -f install.sh
+        exit 1
     fi
-    echo -e "用户名: ${GREEN}$config_account ${PLAIN}"
-    echo -e "密码: ${GREEN}$config_password ${PLAIN}"
-}
+else
+    last_version=$1
+    url="https://github.com/taffychan/x-ui/releases/download/${last_version}/x-ui-linux-$(archAffix).tar.gz"
+    yellow "开始安装 x-ui $1"
+    wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(archAffix).tar.gz ${url}
+    if [[ $? -ne 0 ]]; then
+        red "下载 x-ui $1 失败，请确保此版本存在"
+        rm -f install.sh
+        exit 1
+    fi
+fi
+    
+cd /usr/local/
+tar zxvf x-ui-linux-$(archAffix).tar.gz
+rm -f x-ui-linux-$(archAffix).tar.gz
+    
+cd x-ui
+chmod +x x-ui bin/xray-linux-$(archAffix)
+cp -f x-ui.service /etc/systemd/system/
+    
+wget -N --no-check-certificate https://raw.githubusercontents.com/taffychan/x-ui/main/x-ui.sh -O /usr/bin/x-ui
+chmod +x /usr/local/x-ui/x-ui.sh
+chmod +x /usr/bin/x-ui
 
-install_xui $1
+yellow "出于安全性考虑，安装/更新完成后需要强制修改端口与账户密码"
+read -rp "请设置登录用户名 [默认随机用户名]: " config_account
+[[ -z $config_account ]] && config_account=$(date +%s%N | md5sum | cut -c 1-8)
+read -rp "请设置登录密码 [默认随机密码]: " config_password
+[[ -z $config_password ]] && config_password=$(date +%s%N | md5sum | cut -c 1-8)
+read -rp "请设置面板访问端口 [默认随机端口]: " config_port
+[[ -z $config_port ]] && config_port=$(shuf -i 1000-65535 -n 1)
+until [[ -z $(ss -ntlp | awk '{print $4}' | grep -w "$config_port") ]]; do
+    if [[ -n $(ss -ntlp | awk '{print $4}' | grep -w  "$config_port") ]]; then
+        yellow "你设置的端口目前已被其他程序占用，请重新设置端口"
+        read -rp "请设置面板访问端口 [默认随机端口]: " config_port
+        [[ -z $config_port ]] && config_port=$(shuf -i 1000-65535 -n 1)
+    fi
+done
+/usr/local/x-ui/x-ui setting -username ${config_account} -password ${config_password} >/dev/null 2>&1
+/usr/local/x-ui/x-ui setting -port ${config_port} >/dev/null 2>&1
+
+systemctl daemon-reload
+systemctl enable x-ui >/dev/null 2>&1
+systemctl start x-ui
+    
+cd $cur_dir
+rm -f install.sh
+green "x-ui v${last_version} 安装完成，面板已启动"
+echo -e ""
+echo -e "x-ui 面板管理脚本使用方法: "
+echo -e "----------------------------------------------"
+echo -e "x-ui              - 显示管理菜单 (功能更多)"
+echo -e "x-ui start        - 启动 x-ui 面板"
+echo -e "x-ui stop         - 停止 x-ui 面板"
+echo -e "x-ui restart      - 重启 x-ui 面板"
+echo -e "x-ui status       - 查看 x-ui 状态"
+echo -e "x-ui enable       - 设置 x-ui 开机自启"
+echo -e "x-ui disable      - 取消 x-ui 开机自启"
+echo -e "x-ui log          - 查看 x-ui 日志"
+echo -e "x-ui v2-ui        - 迁移本机器的 v2-ui 账号数据至 x-ui"
+echo -e "x-ui update       - 更新 x-ui 面板"
+echo -e "x-ui install      - 安装 x-ui 面板"
+echo -e "x-ui uninstall    - 卸载 x-ui 面板"
+echo -e "----------------------------------------------"
+echo -e ""
+if [[ -n $v4 && -z $v6 ]]; then
+    echo -e "面板IPv4登录地址为: ${GREEN}http://$v4:$config_port ${PLAIN}"
+elif [[ -n $v6 && -z $v4 ]]; then
+    echo -e "面板IPv6登录地址为: ${GREEN}http://[$v6]:$config_port ${PLAIN}"
+elif [[ -n $v4 && -n $v6 ]]; then
+    echo -e "面板IPv4登录地址为: ${GREEN}http://$v4:$config_port ${PLAIN}"
+    echo -e "面板IPv6登录地址为: ${GREEN}http://[$v6]:$config_port ${PLAIN}"
+fi
+echo -e "用户名: ${GREEN}$config_account ${PLAIN}"
+echo -e "密码: ${GREEN}$config_password ${PLAIN}"
