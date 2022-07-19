@@ -48,65 +48,55 @@ os_version=$(grep -i version_id /etc/os-release | cut -d \" -f2 | cut -d . -f1)
 [[ $SYSTEM == "Ubuntu" && ${os_version} -lt 16 ]] && echo -e "请使用 Ubuntu 16 或更高版本的系统！" && exit 1
 [[ $SYSTEM == "Debian" && ${os_version} -lt 9 ]] && echo -e "请使用 Debian 9 或更高版本的系统！" && exit 1
 
-archAffix(){
-    case "$(uname -m)" in
-        x86_64 | x64 | amd64 ) echo 'amd64' ;;
-        armv8 | arm64 | aarch64 ) echo 'arm64' ;;
-        s390x ) echo 's390x' ;;
-        * ) red "不支持的CPU架构! " && rm -f install.sh && exit 1 ;;
-    esac
-}
+case "$(uname -m)" in
+    x86_64 | x64 | amd64 ) echo 'amd64' ;;
+    armv8 | arm64 | aarch64 ) echo 'arm64' ;;
+    s390x ) echo 's390x' ;;
+    * ) red "不支持的CPU架构! " && rm -f install.sh && exit 1 ;;
+esac
 
-info_bar(){
-    clear
-    echo "#############################################################"
-    echo -e "#                         ${RED}x-ui 面板${PLAIN}                         #"
-    echo -e "# ${GREEN}作者${PLAIN}: taffychan                                           #"
-    echo -e "# ${GREEN}GitHub${PLAIN}: https://github.com/taffychan                      #"
-    echo "#############################################################"
-    echo ""
-    echo -e "操作系统: ${GREEN} ${CMD} ${PLAIN}"
-    echo ""
-    sleep 2
-}
+clear
+echo "#############################################################"
+echo -e "#                         ${RED}x-ui 面板${PLAIN}                         #"
+echo -e "# ${GREEN}作者${PLAIN}: taffychan                                           #"
+echo -e "# ${GREEN}GitHub${PLAIN}: https://github.com/taffychan                      #"
+echo "#############################################################"
+echo ""
+echo -e "操作系统: ${GREEN} ${CMD} ${PLAIN}"
+echo ""
+sleep 2
 
-check_status(){
-    yellow "正在检查VPS的IP配置环境, 请稍等..." && sleep 1
-    WgcfIPv4Status=$(curl -s4m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
-    WgcfIPv6Status=$(curl -s6m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
-    if [[ $WgcfIPv4Status =~ "on"|"plus" ]] || [[ $WgcfIPv6Status =~ "on"|"plus" ]]; then
-        wg-quick down wgcf >/dev/null 2>&1
-        v6=`curl -s6m8 https://ip.gs -k`
-        v4=`curl -s4m8 https://ip.gs -k`
-        wg-quick up wgcf >/dev/null 2>&1
-    else
-        v6=`curl -s6m8 https://ip.gs -k`
-        v4=`curl -s4m8 https://ip.gs -k`
-        if [[ -z $v4 && -n $v6 ]]; then
-            yellow "检测到为纯IPv6 VPS, 已自动添加DNS64解析服务器"
-            echo -e "nameserver 2a01:4f8:c2c:123f::1" > /etc/resolv.conf
-        fi
-    fi
-    sleep 1
-}
+if [[ ! $SYSTEM == "CentOS" ]]; then
+    ${PACKAGE_UPDATE[int]}
+fi
 
-install_base(){
-    if [[ ! $SYSTEM == "CentOS" ]]; then
-        ${PACKAGE_UPDATE[int]}
-    fi
+if [[ -z $(type -P curl) ]]; then
+    yellow "检测curl未安装，正在安装中..."
+    ${PACKAGE_INSTALL[int]} curl
+fi
     
-    if [[ -z $(type -P curl) ]]; then
-        yellow "检测curl未安装，正在安装中..."
-        ${PACKAGE_INSTALL[int]} curl
+if [[ -z $(type -P tar) ]]; then
+    yellow "检测tar未安装，正在安装中..."
+    ${PACKAGE_INSTALL[int]} tar
+fi
+
+yellow "正在检查VPS的IP配置环境, 请稍等..." && sleep 1
+WgcfIPv4Status=$(curl -s4m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
+WgcfIPv6Status=$(curl -s6m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
+if [[ $WgcfIPv4Status =~ "on"|"plus" ]] || [[ $WgcfIPv6Status =~ "on"|"plus" ]]; then
+    wg-quick down wgcf >/dev/null 2>&1
+    v6=`curl -s6m8 https://ip.gs -k`
+    v4=`curl -s4m8 https://ip.gs -k`
+    wg-quick up wgcf >/dev/null 2>&1
+else
+    v6=`curl -s6m8 https://ip.gs -k`
+    v4=`curl -s4m8 https://ip.gs -k`
+    if [[ -z $v4 && -n $v6 ]]; then
+        yellow "检测到为纯IPv6 VPS, 已自动添加DNS64解析服务器"
+        echo -e "nameserver 2a01:4f8:c2c:123f::1" > /etc/resolv.conf
     fi
-    
-    if [[ -z $(type -P tar) ]]; then
-        yellow "检测tar未安装，正在安装中..."
-        ${PACKAGE_INSTALL[int]} tar
-    fi
-    
-    check_status
-}
+fi
+sleep 1
 
 download_xui(){
     if [[ -e /usr/local/x-ui/ ]]; then
